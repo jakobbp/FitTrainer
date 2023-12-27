@@ -7,7 +7,7 @@ from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QMainWindow, QApplication
 from threading import Timer
 
-import SensorProxy
+import BLESensorProxy
 import FitWriter
 
 
@@ -109,12 +109,12 @@ class TrainerOverlayWindow(QMainWindow):
             time.sleep(0.5)
 
     def connect_sensors(self):
-        garmin_hr_belt = SensorProxy.SensorProxy("F4:86:48:60:E7:0D", {
-            SensorProxy.GATT_CHAR_UUID_HEART_RATE: '00002a37-0000-1000-8000-00805f9b34fb'
+        garmin_hr_belt = BLESensorProxy.BLESensorProxy("F4:86:48:60:E7:0D", {
+            BLESensorProxy.GATT_CHAR_UUID_HEART_RATE: '00002a37-0000-1000-8000-00805f9b34fb'
             })
-        tacx_flow = SensorProxy.SensorProxy("C4:0D:01:89:C9:9F", {
+        tacx_flow = BLESensorProxy.BLESensorProxy("C4:0D:01:89:C9:9F", {
             # SensorProxy.GATT_CHAR_UUID_CSC: '00002a5b-0000-1000-8000-00805f9b34fb',
-            SensorProxy.GATT_CHAR_UUID_POWER: '00002a63-0000-1000-8000-00805f9b34fb'
+            BLESensorProxy.GATT_CHAR_UUID_POWER: '00002a63-0000-1000-8000-00805f9b34fb'
             })
         if self.show_hr:
             self.hr_sensor = garmin_hr_belt

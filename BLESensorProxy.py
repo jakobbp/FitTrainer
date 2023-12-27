@@ -1,60 +1,51 @@
 import asyncio
 from bleak import BleakClient, BleakError, BleakGATTCharacteristic
 
+from AbstractSensorProxy import AbstractSensorProxy
 
 GATT_CHAR_UUID_HEART_RATE = 1
 GATT_CHAR_UUID_POWER = 2
 GATT_CHAR_UUID_CSC = 3
 
 
-class SensorProxy:
+class BLESensorProxy(AbstractSensorProxy):
     def __init__(self, sensor_address, gatt_char_uuids_map: dict, pair=False, connection_retries=3):
+        super().__init__(connection_retries)
         self.sensor_address = sensor_address
         self.gatt_char_uuids_map = gatt_char_uuids_map
         self.pair = pair
-        self.connection_retries = connection_retries
-        self.running = False
-
-        self.last_hr_value = 0
-        self.last_power_value = 0
-        self.last_speed_value = 0
-        self.last_cadence_value = 0
-        self.last_total_distance_value = 0
-
-        self.last_cwr_reading = 0
-        self.last_cwr_time_reading = 0
-        self.last_ccr_reading = 0
-        self.last_ccr_time_reading = 0
 
     async def start(self):
+        if self.running:
+            pass
         self.running = True
         n_tries = 0
         try:
             while n_tries <= self.connection_retries and self.running:
                 if n_tries > 0:
-                    print(f"{self.sensor_address}| retrying connection ({n_tries})")
+                    print(f"BLE sensor {self.sensor_address}| retrying connection ({n_tries})")
                 n_tries += 1
                 async with BleakClient(self.sensor_address) as ble_client:
-                    print(f"{self.sensor_address}| connected")
+                    print(f"BLE sensor {self.sensor_address}| connected")
                     if self.pair:
                         paired = await ble_client.pair()
-                        print(f"{self.sensor_address}| paired = {paired}")
+                        print(f"BLE sensor {self.sensor_address}| paired = {paired}")
                     if GATT_CHAR_UUID_HEART_RATE in self.gatt_char_uuids_map:
-                        print(f"{self.sensor_address}| reading heart rate data")
+                        print(f"BLE sensor {self.sensor_address}| reading heart rate data")
                         await ble_client.start_notify(self.gatt_char_uuids_map[GATT_CHAR_UUID_HEART_RATE], self.store_hr_value)
                     if GATT_CHAR_UUID_POWER in self.gatt_char_uuids_map:
-                        print(f"{self.sensor_address}| reading power data")
+                        print(f"BLE sensor {self.sensor_address}| reading power data")
                         await ble_client.start_notify(self.gatt_char_uuids_map[GATT_CHAR_UUID_POWER], self.store_power_value)
                     if GATT_CHAR_UUID_CSC in self.gatt_char_uuids_map:
-                        print(f"{self.sensor_address}| reading speed & cadence data")
+                        print(f"BLE sensor {self.sensor_address}| reading speed & cadence data")
                         await ble_client.start_notify(self.gatt_char_uuids_map[GATT_CHAR_UUID_CSC], self.store_csc_values)
                     while self.running:
                         await asyncio.sleep(0.5)
         except BleakError as e:
-            print(f"{self.sensor_address}| connection error: {e}")
+            print(f"BLE sensor {self.sensor_address}| connection error: {e}")
 
     def stop(self):
-        print(f"{self.sensor_address}| stopping")
+        print(f"BLE sensor {self.sensor_address}| stopping")
         self.running = False
 
     def store_hr_value(self, sender: BleakGATTCharacteristic, data: bytearray):
