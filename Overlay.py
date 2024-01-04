@@ -7,6 +7,7 @@ from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QMainWindow, QApplication
 from threading import Timer
 
+import ANTSensorProxy
 import BLESensorProxy
 import FitWriter
 
@@ -109,24 +110,32 @@ class TrainerOverlayWindow(QMainWindow):
             time.sleep(0.5)
 
     def connect_sensors(self):
-        garmin_hr_belt = BLESensorProxy.BLESensorProxy("F4:86:48:60:E7:0D", {
+        garmin_hr_belt_ble = BLESensorProxy.BLESensorProxy("F4:86:48:60:E7:0D", {
             BLESensorProxy.GATT_CHAR_UUID_HEART_RATE: '00002a37-0000-1000-8000-00805f9b34fb'
             })
-        tacx_flow = BLESensorProxy.BLESensorProxy("C4:0D:01:89:C9:9F", {
+        tacx_flow_ble = BLESensorProxy.BLESensorProxy("C4:0D:01:89:C9:9F", {
             # SensorProxy.GATT_CHAR_UUID_CSC: '00002a5b-0000-1000-8000-00805f9b34fb',
             BLESensorProxy.GATT_CHAR_UUID_POWER: '00002a63-0000-1000-8000-00805f9b34fb'
             })
+        tacx_flow_csc_ant = ANTSensorProxy.ANTSensorProxy(ANTSensorProxy.DEVICE_TYPE_CSC, 48757, connection_retries=10)
         if self.show_hr:
-            self.hr_sensor = garmin_hr_belt
+            self.hr_sensor = garmin_hr_belt_ble
         if self.show_power:
-            self.power_sensor = tacx_flow
+            self.power_sensor = tacx_flow_ble
         if self.show_cadence:
-            self.cadence_sensor = tacx_flow
+            self.cadence_sensor = tacx_flow_csc_ant
         if self.show_speed:
-            self.speed_sensor = tacx_flow
+            self.speed_sensor = tacx_flow_csc_ant
         if self.show_distance:
-            self.distance_sensor = tacx_flow
-        asyncio.run(self.start_sensor_tasks([garmin_hr_belt, tacx_flow]))
+            self.distance_sensor = tacx_flow_csc_ant
+        ant_sensors = [tacx_flow_csc_ant]
+        ble_sensors = [garmin_hr_belt_ble, tacx_flow_ble]
+        print("1!!!!!!!!")
+        for ant_sensor in ant_sensors:
+            ant_sensor.start()
+        print("2!!!!!!!!")
+        asyncio.run(self.start_ble_sensor_tasks(ble_sensors))
+        print("3!!!!!!!!")
 
     def write_data(self):
         fit_writer = FitWriter.FitWriter()
@@ -175,9 +184,12 @@ class TrainerOverlayWindow(QMainWindow):
     def save_and_quit(self):
         self.hr_sensor.stop()
         self.power_sensor.stop()
+        self.cadence_sensor.stop()
+        self.speed_sensor.stop()
+        self.distance_sensor.stop()
         QtWidgets.qApp.quit()
 
-    async def start_sensor_tasks(self, sensors):
+    async def start_ble_sensor_tasks(self, sensors):
         sensor_tasks = []
         for sensor in sensors:
             sensor_tasks.append(asyncio.create_task(sensor.start()))

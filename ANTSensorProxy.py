@@ -1,4 +1,5 @@
 import threading
+import time
 
 from openant.easy.node import Node
 from openant.devices import ANTPLUS_NETWORK_KEY
@@ -32,25 +33,33 @@ class ANTSensorProxy(AbstractSensorProxy):
         self.device_id = device_id
         self.node = None
         self.device = None
+        self.connecting = False
+        self.connected = False
 
     def start(self):
         if self.running:
             pass
         self.running = True
         n_tries = 0
-        while n_tries <= self.connection_retries and self.running:
+        while n_tries <= self.connection_retries and self.running and not self.connected:
             if n_tries > 0:
                 print(f"ANT+ sensor {self.device_id}| retrying connection ({n_tries})")
             n_tries += 1
             try:
                 t = threading.Thread(target=self._start_sensor_thread)
                 t.start()
+                print(f"!!!CONNECTING")
+                while self.connecting:
+                    time.sleep(0.05)
+                print(f"!!!CONNECTED: {self.connected}")
             except Exception as e:
                 print(f"ANT+ sensor {self.device_id}| error starting thread: ({e})")
+        print("!!!END!!!")
 
     def _start_sensor_thread(self):
-        while self.running:
-            try:
+        self.connecting = True
+        try:
+            while self.running:
                 if self.node is None:
                     self.node = Node()
                     self.node.set_network_key(0x00, ANTPLUS_NETWORK_KEY)
@@ -58,12 +67,14 @@ class ANTSensorProxy(AbstractSensorProxy):
                     self.device.on_found = self.on_found
                     self.device.on_device_data = self.on_device_data
                 self.node.start()
-            finally:
-                print(f"ANT+ sensor {self.device_id}| closing ...")
-                if self.device is not None:
-                    self.device.close_channel()
-                if self.node is not None:
-                    self.node.stop()
+        finally:
+            print(f"ANT+ sensor {self.device_id}| closing ...")
+            if self.device is not None:
+                self.device.close_channel()
+            if self.node is not None:
+                self.node.stop()
+            self.connecting = False
+            self.connected = False
 
     def stop(self):
         print(f"ANT+ sensor {self.device_id}| stopping")
@@ -71,6 +82,8 @@ class ANTSensorProxy(AbstractSensorProxy):
 
     def on_found(self):
         print(f"Device {self.device} found and receiving")
+        self.connected = True
+        self.connecting = False
 
     def on_device_data(self, page: int, page_name: str, data):
         print(f"Data received: {data}")
